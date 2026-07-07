@@ -8,7 +8,7 @@ the samples are illustrative, not City data.
 ## Resume entry (pick 3-4 bullets)
 
 **AI Budget Analyst — personal project** (Python, pandas, Excel/openpyxl,
-PowerPoint, local LLM integration) · github.com/&lt;you&gt;/ai-budget-analyst
+PowerPoint, local LLM integration) · github.com/JoshTheG/ai-budget-analyst
 
 - Built an end-to-end budget monitoring toolkit that ingests any
   operating or capital budget export (CSV/Excel) and produces a
