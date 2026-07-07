@@ -1,0 +1,6 @@
+pandas>=2.0
+numpy>=1.24
+openpyxl>=3.1
+tabulate>=0.9
+# optional, for live Claude mode:
+# anthropic>=0.40

@@ -1,0 +1,18 @@
+{
+  "period": "Fiscal Year",
+  "entity": "Division",
+  "category": "Expenditure Category",
+  "budget_amount": "Adopted Budget",
+  "actual_amount": "Actual Expenditure",
+  "revenue_budget": "Revenue Estimate",
+  "revenue_actual": "Actual Revenue",
+  "rationale": {
+    "period": "column name 'Fiscal Year' matched keyword pattern",
+    "entity": "column name 'Division' matched keyword pattern",
+    "category": "column name 'Expenditure Category' matched keyword pattern",
+    "budget_amount": "column name 'Adopted Budget' matched keyword pattern",
+    "actual_amount": "column name 'Actual Expenditure' matched keyword pattern",
+    "revenue_budget": "column name 'Revenue Estimate' matched keyword pattern",
+    "revenue_actual": "column name 'Actual Revenue' matched keyword pattern"
+  }
+}
