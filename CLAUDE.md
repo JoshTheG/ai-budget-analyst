@@ -2,14 +2,18 @@
 
 ## What this project is
 
-AI Budget Analyst: a CLI pipeline that analyzes any tabular budget dataset
-(CSV/Excel) and produces an Excel variance workbook, trend + least-squares
-forecast, z-score anomaly flags, and a written budget memo.
+AI Budget Analyst: a CLI toolkit that analyzes any tabular budget dataset
+(CSV/Excel) — operating or capital — and produces an Excel variance
+workbook, a written budget memo, a PowerPoint briefing deck, and a live
+file-watching dashboard. Covers variance, encumbrance/available-balance
+tracking, revenue-vs-target attainment, per-fund reconciliation, trend,
+least-squares forecast, and z-score anomaly flags.
 
 Built by Joshua Gonzalez as a portfolio project for the City of San Jose
 PRNS Analyst I/II (Budget) application (job 202601655, closes July 15,
-2026) and similar municipal analyst roles. The demo dataset mirrors the
-real PRNS division structure; dollar figures are illustrative.
+2026) and similar municipal analyst roles. The demo datasets mirror the
+real PRNS division structure and capital fund portfolio (10 C&C tax
+funds, bond fund, Park Trust Fund); dollar figures are illustrative.
 
 ## Non-negotiable design rule
 
@@ -18,42 +22,65 @@ deterministically in `analysis.py` (pandas/NumPy). Claude only maps
 schemas (`schema_mapper.py`), narrates, and answers questions
 (`agent.py`) from pre-computed facts. Never move calculation into a
 prompt. The schema mapping is written to `schema_mapping.json` as an
-audit trail — keep that behavior.
+audit trail — keep that behavior. The deck and dashboard follow the same
+rule: facts in, formatting out.
 
 ## Architecture
 
-- `budget_analyst/ingest.py` — load CSV/xlsx, build a compact profile
-  (only the profile is ever sent to the API, never the full dataset)
+- `budget_analyst/ingest.py` — load CSV/xlsx: multi-sheet pick (densest
+  wins, `--sheet` overrides), header-row sniffing past title rows,
+  currency-text cleanup (`$1,234.56`, `(500.00)`); builds a compact
+  profile (only the profile is ever sent to the API, never the dataset)
 - `budget_analyst/schema_mapper.py` — Claude maps columns to canonical
-  roles: period, entity, category, budget_amount, actual_amount,
-  revenue_budget, revenue_actual. Keyword heuristics when no API key.
-- `budget_analyst/analysis.py` — variance tables, trend, linear forecast,
-  z-score anomalies; returns `{tables, facts}`; facts feed the narrator
-- `budget_analyst/agent.py` — memo writer + Q&A; MockClient-free design:
-  `get_client()` returns None without ANTHROPIC_API_KEY and every
-  function has a template fallback using the same facts
-- `budget_analyst/report.py` — openpyxl workbook + markdown memo
-- `budget_analyst/cli.py` — `analyze` and `ask` subcommands
+  roles: period, fund, entity, project, category, budget_amount,
+  actual_amount, encumbrance, revenue_budget, revenue_actual. Keyword
+  heuristics when no API key. Role order matters: fund must claim the
+  word "Fund" before entity scans.
+- `budget_analyst/analysis.py` — variance (encumbrance-aware), revenue
+  attainment, fund_summary reconciliation, trend, linear forecast,
+  z-score anomalies; returns `{tables, facts}`; facts feed the narrator.
+  Entity falls back to project, then fund, for capital extracts.
+- `budget_analyst/agent.py` — memo writer + Q&A; `get_client()` returns
+  None without ANTHROPIC_API_KEY and every function has a template
+  fallback using the same facts
+- `budget_analyst/report.py` — openpyxl workbook: styled headers,
+  currency/percent formats, red/green conditional rules, embedded
+  budget-vs-actual BarChart, summary sheet
+- `budget_analyst/deck.py` — python-pptx 4-slide briefing (title,
+  headline figures, native chart, findings/actions)
+- `budget_analyst/dashboard.py` — stdlib ThreadingHTTPServer; page polls
+  /data.json every 2s; server re-analyzes only on mtime change and keeps
+  the last good snapshot if a mid-save read fails
+- `budget_analyst/cli.py` — `analyze` / `ask` / `dashboard` / `brief`
 
 ## Commands
 
 ```bash
-python data/make_sample.py                                   # regen demo data
-python -m budget_analyst analyze data/sample_prns_operating_budget.csv
-python -m budget_analyst ask <file> "question"               # NL Q&A
-python -m budget_analyst analyze <file> --mock               # force offline
-pytest                                                       # 6 tests, all passing
+venv/Scripts/python.exe data/make_sample.py     # regen both demo datasets
+venv/Scripts/python.exe -m budget_analyst analyze data/sample_prns_operating_budget.csv
+venv/Scripts/python.exe -m budget_analyst analyze data/sample_prns_capital_funds.csv
+venv/Scripts/python.exe -m budget_analyst dashboard <file>   # localhost:8765
+venv/Scripts/python.exe -m budget_analyst brief <file>       # .pptx deck
+venv/Scripts/python.exe -m budget_analyst ask <file> "question"
+venv/Scripts/python.exe -m pytest tests -q     # 18 tests, all offline
 ```
+
+Windows note: the venv lives at repo root (`venv/`), created from
+python 3.14. pandas 3.x is installed — string columns are dtype `str`,
+not `object` (ingest's currency cleaner handles both).
 
 ## Current state (July 2026)
 
-- Pipeline complete, 6/6 tests passing, mock mode fully offline
+- v0.2.0: capital-funds module, encumbrances, revenue attainment, live
+  dashboard, PowerPoint deck, messy-Excel ingestion; 18/18 tests passing
 - Live Claude mode written but NOT yet run (owner has no API key yet)
 - Not yet pushed to GitHub
+- Dashboard verified end-to-end: save the watched file and totals update
 
 ## Next steps (in priority order)
 
-1. Push to GitHub as public repo `ai-budget-analyst`
+1. Push to GitHub as public repo `ai-budget-analyst`; add dashboard +
+   workbook screenshots to the README
 2. Get an Anthropic API key, `pip install anthropic`, verify live mode:
    schema mapping and memo on the sample data
 3. Export a REAL dataset from https://sanjoseca.opengov.com/transparency
@@ -61,14 +88,18 @@ pytest                                                       # 6 tests, all pass
    they are illustrative only
 4. Optional generalization demo: the daily-updated 311 dataset at
    https://data.sanjoseca.gov/dataset/311-service-request-data
-5. Update resume project bullet with real run numbers (rows, years,
-   funds) once step 3 is done
+5. Update RESUME.md bullets with real run numbers (rows, years, funds)
+   once step 3 is done
 
 ## Conventions
 
 - Python 3.10+, no dependencies beyond requirements.txt
   (anthropic optional, pytest for dev)
 - Graceful degradation everywhere: any Claude failure falls back to
-  heuristics/templates rather than crashing
-- Keep the README's honesty guarantees true: every memo number traceable
-  to `analysis.py`, sample data clearly labeled illustrative
+  heuristics/templates rather than crashing; dashboard serves the last
+  good snapshot on read errors
+- Keep the README's honesty guarantees true: every memo/deck/dashboard
+  number traceable to `analysis.py`, sample data clearly labeled
+  illustrative
+- Tests assert math as identities (variance = budget − actual;
+  available = budget − actual − encumbered; fund totals reconcile)

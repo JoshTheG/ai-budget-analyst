@@ -9,6 +9,7 @@ For FY 2025-26, total budgeted expenditures were $132,554,965 against actuals of
 - Highest spending vs. budget: Happy Hollow Park & Zoo (+4.6% relative to budget).
 - Largest underspend: Community Facilities Development (-15.4% relative to budget).
 - Latest period total of $131,412,290 changed +6.5% versus the prior period.
+- Revenue collections at 93.99% of the $33,024,667 target; weakest attainment: Recreation & Community Services (91.8%).
 
 ## Risks & Anomalies
 

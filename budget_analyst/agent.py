@@ -59,6 +59,11 @@ def mock_memo(facts: dict) -> str:
             f"expenditures were {_fmt_money(f['total_budget'])} against actuals of "
             f"{_fmt_money(f['total_actual'])} — {f.get('overall_pct_spent', 'n/a')}% "
             f"of budget spent, a net variance of {_fmt_money(f['total_variance'])}.")
+    if "overall_pct_committed" in f:
+        lines.append(
+            f"Including {_fmt_money(f['total_encumbrance'])} in encumbrances, "
+            f"{f['overall_pct_committed']}% of budget is committed and "
+            f"{_fmt_money(f['total_available'])} remains available.")
     lines += ["", "## Key Findings", ""]
     if "largest_overrun_entity" in f:
         lines.append(
@@ -71,6 +76,17 @@ def mock_memo(facts: dict) -> str:
         lines.append(
             f"- Latest period total of {_fmt_money(f['latest_total'])} changed "
             f"{f['latest_change_pct']:+.1f}% versus the prior period.")
+    if "revenue_attainment_pct" in f:
+        lines.append(
+            f"- Revenue collections at {f['revenue_attainment_pct']}% of the "
+            f"{_fmt_money(f['total_revenue_target'])} target; weakest attainment: "
+            f"{f['weakest_revenue_entity']} "
+            f"({f['weakest_revenue_attainment_pct']:.1f}%).")
+    if "tightest_fund" in f:
+        lines.append(
+            f"- Across {f['n_funds']} funds, the tightest available balance is "
+            f"{f['tightest_fund']} ({_fmt_money(f['tightest_fund_available'])}); "
+            f"see Fund Summary sheet for the full reconciliation.")
     lines += ["", "## Risks & Anomalies", ""]
     lines.append(
         f"- {f['anomaly_count']} unit(s) flagged as statistical variance outliers "

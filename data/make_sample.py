@@ -1,10 +1,17 @@
-"""Generate a sample dataset shaped like a City of San Jose PRNS
-operating-budget export: division x category x fiscal year, adopted
-budget vs. actuals plus revenue estimate vs. actual.
+"""Generate the two demo datasets.
 
-ILLUSTRATIVE DATA. Division names mirror the real PRNS structure; the
-dollar figures are representative, not the City's actual numbers.
-Replace with a real export from sanjoseca.opengov.com for live use.
+1. sample_prns_operating_budget.csv - shaped like a City of San Jose PRNS
+   operating-budget export: division x category x fiscal year, adopted
+   budget vs. actuals plus revenue estimate vs. actual.
+2. sample_prns_capital_funds.csv - shaped like a capital monitoring
+   extract: fund x project x fiscal year with appropriation, expended,
+   encumbrance, and revenue columns, mirroring the fund portfolio the
+   PRNS Capital Budget Unit oversees (Construction & Conveyance tax
+   funds by council district, a parks bond fund, and the Park Trust Fund).
+
+ILLUSTRATIVE DATA. Names mirror the real PRNS structure; the dollar
+figures are representative, not the City's actual numbers. Replace with
+a real export from sanjoseca.opengov.com for live use.
 """
 
 import csv
@@ -13,6 +20,11 @@ from pathlib import Path
 
 random.seed(42)
 
+HERE = Path(__file__).parent
+YEARS = ["FY 2022-23", "FY 2023-24", "FY 2024-25", "FY 2025-26"]
+GROWTH = 1.045  # nominal annual growth
+
+# ---------------------------------------------------------------- operating
 DIVISIONS = {
     "Administrative Services": 12.0,
     "Parks Maintenance & Operations": 38.0,
@@ -22,8 +34,6 @@ DIVISIONS = {
     "Strategic Support": 7.0,
 }
 CATEGORIES = {"Personal Services": 0.72, "Non-Personal/Equipment": 0.28}
-YEARS = ["FY 2022-23", "FY 2023-24", "FY 2024-25", "FY 2025-26"]
-GROWTH = 1.045  # nominal annual growth
 
 rows = []
 for y_i, fy in enumerate(YEARS):
@@ -54,10 +64,47 @@ for y_i, fy in enumerate(YEARS):
                 "Actual Revenue": round(rev_a, 2),
             })
 
-out = Path(__file__).parent / "sample_prns_operating_budget.csv"
+out = HERE / "sample_prns_operating_budget.csv"
 with out.open("w", newline="", encoding="utf-8") as f:
     w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
     w.writeheader()
     w.writerows(rows)
 print(f"wrote {out} ({len(rows)} rows)")
-# EOF-SENTINEL
+
+# ------------------------------------------------------------------ capital
+FUNDS = ([f"C&C Tax Fund - Council District {d}" for d in range(1, 11)]
+         + ["Parks & Rec Bond Projects Fund", "Park Trust Fund"])
+PROJECT_TYPES = ["Playground Renovation", "Trail Segment", "Community Center HVAC",
+                 "Sports Field Lighting", "Restroom Replacement", "Pool Rehab"]
+
+cap_rows = []
+for y_i, fy in enumerate(YEARS):
+    for fund in FUNDS:
+        n_projects = random.randint(2, 4)
+        for i in range(n_projects):
+            proj = f"{random.choice(PROJECT_TYPES)} #{i + 1}"
+            approp = random.uniform(0.4, 6.0) * 1_000_000 * (GROWTH ** y_i)
+            spent_pct = random.uniform(0.15, 0.85)
+            enc_pct = random.uniform(0.05, min(0.30, 0.95 - spent_pct))
+            expended = approp * spent_pct
+            encumbered = approp * enc_pct
+            # trust fund collects developer in-lieu fees; C&C gets tax receipts
+            rev_est = approp * random.uniform(0.6, 1.1)
+            rev_act = rev_est * random.uniform(0.8, 1.15)
+            cap_rows.append({
+                "Fiscal Year": fy,
+                "Fund": fund,
+                "Project": proj,
+                "Appropriation": round(approp, 2),
+                "Expended to Date": round(expended, 2),
+                "Encumbrance": round(encumbered, 2),
+                "Revenue Estimate": round(rev_est, 2),
+                "Actual Revenue": round(rev_act, 2),
+            })
+
+out = HERE / "sample_prns_capital_funds.csv"
+with out.open("w", newline="", encoding="utf-8") as f:
+    w = csv.DictWriter(f, fieldnames=list(cap_rows[0].keys()))
+    w.writeheader()
+    w.writerows(cap_rows)
+print(f"wrote {out} ({len(cap_rows)} rows)")

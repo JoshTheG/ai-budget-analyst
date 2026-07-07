@@ -1,0 +1,20 @@
+{
+  "period": "Fiscal Year",
+  "fund": "Fund",
+  "project": "Project",
+  "budget_amount": "Appropriation",
+  "actual_amount": "Expended to Date",
+  "encumbrance": "Encumbrance",
+  "revenue_budget": "Revenue Estimate",
+  "revenue_actual": "Actual Revenue",
+  "rationale": {
+    "period": "column name 'Fiscal Year' matched keyword pattern",
+    "fund": "column name 'Fund' matched keyword pattern",
+    "project": "column name 'Project' matched keyword pattern",
+    "budget_amount": "column name 'Appropriation' matched keyword pattern",
+    "actual_amount": "column name 'Expended to Date' matched keyword pattern",
+    "encumbrance": "column name 'Encumbrance' matched keyword pattern",
+    "revenue_budget": "column name 'Revenue Estimate' matched keyword pattern",
+    "revenue_actual": "column name 'Actual Revenue' matched keyword pattern"
+  }
+}

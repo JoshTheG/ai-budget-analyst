@@ -2,10 +2,13 @@
 
 Roles:
     period          fiscal year / month / quarter column
-    entity          department, division, program, or fund name
+    fund            capital or special fund name (C&C funds, bond, trust)
+    entity          department, division, program, or agency name
+    project         capital project / site / facility name
     category        expenditure category (personal services, supplies, ...)
-    budget_amount   adopted/modified budget dollars
+    budget_amount   adopted/modified budget or appropriation dollars
     actual_amount   actual expenditure dollars
+    encumbrance     encumbered/committed-but-unspent dollars
     revenue_budget  budgeted/target revenue dollars
     revenue_actual  actual revenue dollars
 
@@ -20,17 +23,22 @@ import json
 import re
 
 ROLES = [
-    "period", "entity", "category",
-    "budget_amount", "actual_amount",
+    "period", "fund", "entity", "project", "category",
+    "budget_amount", "actual_amount", "encumbrance",
     "revenue_budget", "revenue_actual",
 ]
 
+# Order matters: roles are matched top to bottom and a column can only be
+# claimed once, so "fund" must win the word Fund before "entity" scans.
 _HEURISTICS = {
     "period": r"(fiscal.?year|^fy|year|period|month|quarter|date)",
-    "entity": r"(department|division|program|fund|agency|unit|cost.?center)",
+    "fund": r"\bfund",
+    "entity": r"(department|division|program|agency|unit|cost.?center)",
+    "project": r"(project|site|facility|location)",
     "category": r"(category|object|account|type|class)",
     "budget_amount": r"(adopted|approved|modified|revised)?.*budget(?!.*rev)|appropriat",
     "actual_amount": r"(actual|expend|spent|expense)(?!.*rev)",
+    "encumbrance": r"(encumbr|committed|obligat)",
     "revenue_budget": r"(revenue|receipt).*(budget|target|estimate)|(budget|target|estimate).*(revenue|receipt)",
     "revenue_actual": r"(revenue|receipt).*(actual)|(actual).*(revenue|receipt)",
 }
@@ -51,14 +59,15 @@ def heuristic_map(profile: dict) -> dict:
     names = [c["name"] for c in profile["columns"]]
     numeric = {c["name"] for c in profile["columns"]
                if c["dtype"].startswith(("int", "float"))}
+    dollar_roles = {"budget_amount", "actual_amount", "encumbrance",
+                    "revenue_budget", "revenue_actual"}
     for role in ROLES:
         pat = re.compile(_HEURISTICS[role], re.I)
         for name in names:
             if name in mapping.values():
                 continue
             if pat.search(name):
-                # dollar roles must be numeric columns
-                if role.endswith(("amount", "budget", "actual")) and name not in numeric:
+                if role in dollar_roles and name not in numeric:
                     continue
                 mapping[role] = name
                 rationale[role] = f"column name '{name}' matched keyword pattern"
@@ -96,4 +105,3 @@ def map_schema(profile: dict, client=None, model: str = "claude-sonnet-5") -> di
     if client is None:
         return heuristic_map(profile)
     return claude_map(profile, client, model)
-# EOF-SENTINEL

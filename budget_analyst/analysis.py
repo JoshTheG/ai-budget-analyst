@@ -1,7 +1,8 @@
 """Deterministic analysis engine. Every number in the memo comes from here.
 
-No LLM involvement: variance, trends, forecasts, and anomaly flags are
-computed with pandas/NumPy so every figure is exact and reproducible.
+No LLM involvement: variance, encumbrances, revenue attainment, fund
+activity, trends, forecasts, and anomaly flags are computed with
+pandas/NumPy so every figure is exact and reproducible.
 """
 
 from __future__ import annotations
@@ -14,22 +15,86 @@ def _num(df: pd.DataFrame, col: str) -> pd.Series:
     return pd.to_numeric(df[col], errors="coerce")
 
 
+def _latest_slice(df: pd.DataFrame, m: dict) -> pd.DataFrame:
+    """Rows for the most recent period, or the whole frame if no period."""
+    p = m.get("period")
+    if p and p in df.columns:
+        latest = df[p].dropna().max()
+        return df[df[p] == latest]
+    return df
+
+
 def variance_table(df: pd.DataFrame, m: dict, by: str) -> pd.DataFrame | None:
-    """Budget vs. actual by entity or category for the latest period."""
+    """Budget vs. actual (and encumbrance, when present) for the latest period.
+
+    With an encumbrance column mapped this becomes a true municipal
+    monitoring view: available = budget - actual - encumbered, and
+    pct_committed counts encumbered dollars as spoken for.
+    """
     b, a = m.get("budget_amount"), m.get("actual_amount")
     if not (b and a and by in df.columns):
         return None
-    work = df.copy()
-    if m.get("period"):
-        latest = work[m["period"]].dropna().max()
-        work = work[work[m["period"]] == latest]
-    g = work.groupby(by, dropna=False).agg(
-        budget=(b, "sum"), actual=(a, "sum")).reset_index()
+    work = _latest_slice(df, m)
+    agg = {"budget": (b, "sum"), "actual": (a, "sum")}
+    enc = m.get("encumbrance")
+    if enc and enc in work.columns:
+        agg["encumbrance"] = (enc, "sum")
+    g = work.groupby(by, dropna=False).agg(**agg).reset_index()
     g["variance"] = g["budget"] - g["actual"]
     g["variance_pct"] = np.where(g["budget"] != 0,
                                  (g["actual"] - g["budget"]) / g["budget"] * 100, np.nan)
     g["pct_spent"] = np.where(g["budget"] != 0, g["actual"] / g["budget"] * 100, np.nan)
+    if "encumbrance" in g.columns:
+        g["available"] = g["budget"] - g["actual"] - g["encumbrance"]
+        g["pct_committed"] = np.where(
+            g["budget"] != 0,
+            (g["actual"] + g["encumbrance"]) / g["budget"] * 100, np.nan)
     return g.sort_values("variance_pct", ascending=False).round(2)
+
+
+def revenue_table(df: pd.DataFrame, m: dict, by: str) -> pd.DataFrame | None:
+    """Revenue estimate vs. actual by entity/fund for the latest period."""
+    rb, ra = m.get("revenue_budget"), m.get("revenue_actual")
+    if not (rb and ra and by in df.columns):
+        return None
+    work = _latest_slice(df, m)
+    g = work.groupby(by, dropna=False).agg(
+        revenue_target=(rb, "sum"), revenue_actual=(ra, "sum")).reset_index()
+    g["revenue_variance"] = g["revenue_actual"] - g["revenue_target"]
+    g["attainment_pct"] = np.where(
+        g["revenue_target"] != 0,
+        g["revenue_actual"] / g["revenue_target"] * 100, np.nan)
+    return g.sort_values("attainment_pct").round(2)
+
+
+def fund_summary(df: pd.DataFrame, m: dict) -> pd.DataFrame | None:
+    """Per-fund activity for the latest period: the capital monitoring view.
+
+    For each fund: appropriation, expended, encumbered, available, revenue
+    collected vs. estimate, and net activity (revenues - expenditures) -
+    the reconciliation a capital budget unit runs across C&C, bond, and
+    trust funds every cycle.
+    """
+    fund = m.get("fund")
+    b, a = m.get("budget_amount"), m.get("actual_amount")
+    if not (fund and fund in df.columns and b and a):
+        return None
+    work = _latest_slice(df, m)
+    agg = {"appropriation": (b, "sum"), "expended": (a, "sum")}
+    if m.get("encumbrance") and m["encumbrance"] in work.columns:
+        agg["encumbered"] = (m["encumbrance"], "sum")
+    if m.get("revenue_actual") and m["revenue_actual"] in work.columns:
+        agg["revenue_actual"] = (m["revenue_actual"], "sum")
+    if m.get("revenue_budget") and m["revenue_budget"] in work.columns:
+        agg["revenue_estimate"] = (m["revenue_budget"], "sum")
+    g = work.groupby(fund, dropna=False).agg(**agg).reset_index()
+    g["available"] = g["appropriation"] - g["expended"] - g.get(
+        "encumbered", pd.Series(0.0, index=g.index))
+    g["pct_spent"] = np.where(g["appropriation"] != 0,
+                              g["expended"] / g["appropriation"] * 100, np.nan)
+    if "revenue_actual" in g.columns:
+        g["net_activity"] = g["revenue_actual"] - g["expended"]
+    return g.sort_values("available").round(2)
 
 
 def trend_table(df: pd.DataFrame, m: dict) -> pd.DataFrame | None:
@@ -87,34 +152,65 @@ def run_all(df: pd.DataFrame, mapping: dict) -> dict:
     tables: dict[str, pd.DataFrame] = {}
     facts: dict = {"row_count": int(len(df))}
 
-    for col in ("budget_amount", "actual_amount", "revenue_budget", "revenue_actual"):
+    for col in ("budget_amount", "actual_amount", "encumbrance",
+                "revenue_budget", "revenue_actual"):
         if m.get(col):
             df[m[col]] = _num(df, m[col])
 
-    by_entity = variance_table(df, m, m.get("entity")) if m.get("entity") else None
+    # entity fallback: capital exports often have fund/project, no division
+    entity = m.get("entity") or m.get("project") or m.get("fund")
+
+    by_entity = variance_table(df, m, entity) if entity else None
     by_cat = variance_table(df, m, m.get("category")) if m.get("category") else None
+    revenue = revenue_table(df, m, entity) if entity else None
+    funds = fund_summary(df, m)
     trend = trend_table(df, m)
     fc = forecast_next(trend)
-    anom = anomalies(by_entity, m.get("entity"))
+    anom = anomalies(by_entity, entity)
 
     if by_entity is not None:
         tables["variance_by_entity"] = by_entity
+        facts["entity_column"] = entity
         facts["total_budget"] = round(float(by_entity["budget"].sum()), 2)
         facts["total_actual"] = round(float(by_entity["actual"].sum()), 2)
         facts["total_variance"] = round(float(by_entity["variance"].sum()), 2)
         facts["overall_pct_spent"] = round(
             facts["total_actual"] / facts["total_budget"] * 100, 2) if facts["total_budget"] else None
         top_over = by_entity.iloc[0]
-        facts["largest_overrun_entity"] = str(top_over[m["entity"]])
+        facts["largest_overrun_entity"] = str(top_over[entity])
         facts["largest_overrun_pct"] = float(top_over["variance_pct"])
         top_under = by_entity.iloc[-1]
-        facts["largest_underspend_entity"] = str(top_under[m["entity"]])
+        facts["largest_underspend_entity"] = str(top_under[entity])
         facts["largest_underspend_pct"] = float(top_under["variance_pct"])
+        if "available" in by_entity.columns:
+            facts["total_encumbrance"] = round(float(by_entity["encumbrance"].sum()), 2)
+            facts["total_available"] = round(float(by_entity["available"].sum()), 2)
+            facts["overall_pct_committed"] = round(
+                (facts["total_actual"] + facts["total_encumbrance"])
+                / facts["total_budget"] * 100, 2) if facts["total_budget"] else None
     if m.get("period") and m.get("period") in df.columns:
         facts["latest_period"] = str(df[m["period"]].dropna().max())
         facts["n_periods"] = int(df[m["period"]].nunique())
     if by_cat is not None:
         tables["variance_by_category"] = by_cat
+    if revenue is not None:
+        tables["revenue_vs_target"] = revenue
+        facts["total_revenue_target"] = round(float(revenue["revenue_target"].sum()), 2)
+        facts["total_revenue_actual"] = round(float(revenue["revenue_actual"].sum()), 2)
+        facts["revenue_attainment_pct"] = round(
+            facts["total_revenue_actual"] / facts["total_revenue_target"] * 100,
+            2) if facts["total_revenue_target"] else None
+        weakest = revenue.iloc[0]
+        facts["weakest_revenue_entity"] = str(weakest[entity])
+        facts["weakest_revenue_attainment_pct"] = float(weakest["attainment_pct"])
+    if funds is not None:
+        tables["fund_summary"] = funds
+        facts["n_funds"] = int(len(funds))
+        tightest = funds.iloc[0]
+        facts["tightest_fund"] = str(tightest[m["fund"]])
+        facts["tightest_fund_available"] = float(tightest["available"])
+        if "net_activity" in funds.columns:
+            facts["funds_net_activity"] = round(float(funds["net_activity"].sum()), 2)
     if trend is not None:
         tables["trend_by_period"] = trend
         facts["latest_total"] = float(trend["total"].iloc[-1])
@@ -129,4 +225,3 @@ def run_all(df: pd.DataFrame, mapping: dict) -> dict:
         facts["anomaly_count"] = int(len(anom))
 
     return {"tables": tables, "facts": facts}
-# EOF-SENTINEL

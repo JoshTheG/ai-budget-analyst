@@ -5,5 +5,4 @@ deterministically with pandas/NumPy; Claude maps schemas, decides which
 analyses matter, and writes the memo around verified numbers.
 """
 
-__version__ = "0.1.0"
-# EOF-SENTINEL
+__version__ = "0.2.0"
