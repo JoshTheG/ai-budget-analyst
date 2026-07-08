@@ -62,6 +62,38 @@ def test_explicit_sheet_selection(messy_workbook):
     assert "Adopted Budget" in df.columns
 
 
+def test_opengov_crosstab_csv(tmp_path):
+    """OpenGov-style export: title/filter rows, blank row-label header,
+    years pivoted across columns, and a Total row that must not double."""
+    p = tmp_path / "snapshot.csv"
+    p.write_text(
+        '"San Jose"\n'
+        '"Detailed Monthly Actual - PS-PARKS"\n'
+        '"Download generated on 07/08/2026"\n'
+        "\n"
+        '"Funds Filter","Cash Reserve Fund","General Fund"\n'
+        "\n"
+        '"","September 2012-13 Actual","September 2013-14 Actual",'
+        '"September 2014-15 Actual"\n'
+        '"PS-PARKS, RECREATION & NEIGH"," 6,598,484"," 6,638,961"," 7,472,835"\n'
+        "\n"
+        '"Total"," 6,598,484"," 6,638,961"," 7,472,835"\n',
+        encoding="utf-8")
+    df = ingest.load_table(str(p))
+    # melted long: one row per period, Total row dropped
+    assert list(df.columns) == ["Row Label", "Period", "Actual"]
+    assert len(df) == 3
+    assert df["Actual"].sum() == pytest.approx(20_710_280)
+
+    mapping = schema_mapper.map_schema(ingest.profile(df))
+    assert mapping["period"] == "Period"
+    assert mapping["entity"] == "Row Label"
+    result = analysis.run_all(df, mapping)
+    trend = result["tables"]["trend_by_period"]
+    assert len(trend) == 3
+    assert trend["total"].iloc[0] == pytest.approx(6_598_484)
+
+
 def test_plain_text_columns_untouched(tmp_path):
     """Currency cleanup must not mangle genuine text columns."""
     import pandas as pd

@@ -11,9 +11,11 @@ operating or capital — and it produces what a budget office produces:
   Excel, hit save, and the KPIs, chart, and tables update themselves
 
 It handles the data the way it actually arrives: multi-sheet workbooks,
-report-title rows above the header, dollars stored as text like
-`$1,234.56` or accounting negatives `(500.00)` — and it maps unfamiliar
-column names onto analysis roles automatically.
+report-title and filter rows above the header, dollars stored as text
+like `$1,234.56` or accounting negatives `(500.00)`, and crosstab
+exports with years pivoted across columns (OpenGov-style downloads are
+reshaped to long form automatically, Total rows dropped) — and it maps
+unfamiliar column names onto analysis roles automatically.
 
 Built around one design rule: **the LLM never does arithmetic.** All
 figures are computed deterministically with pandas/NumPy. Claude does what

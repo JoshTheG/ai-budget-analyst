@@ -33,7 +33,7 @@ ROLES = [
 _HEURISTICS = {
     "period": r"(fiscal.?year|^fy|year|period|month|quarter|date)",
     "fund": r"\bfund",
-    "entity": r"(department|division|program|agency|unit|cost.?center)",
+    "entity": r"(department|division|program|agency|unit|cost.?center|row.?label)",
     "project": r"(project|site|facility|location)",
     "category": r"(category|object|account|type|class)",
     "budget_amount": r"(adopted|approved|modified|revised)?.*budget(?!.*rev)|appropriat",
