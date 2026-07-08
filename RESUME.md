@@ -14,6 +14,13 @@ PowerPoint, local LLM integration) · github.com/JoshTheG/ai-budget-analyst
   operating or capital budget export (CSV/Excel) and produces a
   formatted variance workbook, budget memo, and PowerPoint briefing in
   one command.
+- Analyzed real City of San José open data (1,616 park condition
+  assessments across 274 parks, 2021–2025) to produce an equity-weighted
+  maintenance-investment priority list: flagged a systemic citywide
+  asset gap (drinking fountains at 64.5/100, −12.3 pts YoY), ranked all
+  10 council districts to guide district-based C&C capital funds, and
+  identified the 2 highest-need parks using transparent, reproducible
+  criteria.
 - Implemented the core municipal monitoring math: budget-vs-actual
   variance, encumbrance-aware available balances and % committed,
   revenue-vs-target attainment, per-fund reconciliation across a

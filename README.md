@@ -94,6 +94,29 @@ sheets are handled automatically (densest sheet wins) or pick one with
                   template)     highlighting    stdlib HTTP only
 ```
 
+## Real-data case study: San José park maintenance priorities
+
+`scripts/` contains a worked example on **real, weekly-refreshed City of
+San José data** — the PRNS Park Condition Assessment (field-staff scores
+for 274 parks, 2021–present, from data.sanjoseca.gov):
+
+```bash
+python scripts/fetch_sanjose.py        # pull the latest published data
+python scripts/park_conditions.py      # -> priority workbook + memo
+```
+
+It answers a question the department actually faces: *with limited
+maintenance and district-based C&C capital funds, which parks get the
+next dollar?* Each park gets three transparent flags — condition below
+70/100, decline of 5+ points, and bottom-quartile Healthy Places Index
+(the ActivateSJ equity lens) — and the workbook ranks parks, rolls up by
+council district (the C&C fund structure), and surfaces systemic asset
+gaps. Findings from the July 2026 data: drinking fountains are the
+weakest asset category citywide (64.5/100 average, down 12.3 points in a
+year), Council District 8 has the lowest average condition and fastest
+decline, and 2 parks carry all three flags. See
+[examples/san_jose_parks/](examples/san_jose_parks/) for the outputs.
+
 ## Mock mode vs. live mode
 
 Without `ANTHROPIC_API_KEY` set, the tool runs fully offline: heuristic
@@ -132,6 +155,8 @@ budget_analyst/
     dashboard.py      live file-watching localhost dashboard (stdlib)
     cli.py            analyze / ask / dashboard / brief commands
 data/                 sample generators + demo datasets (operating + capital)
+data/real/            real San Jose open data (refresh with fetch_sanjose.py)
+scripts/              real-data case study: fetch + park-priority analysis
 tests/                18 tests, all offline: math identities, messy-Excel
                       ingestion, fund reconciliation, deck/dashboard outputs
 ```
